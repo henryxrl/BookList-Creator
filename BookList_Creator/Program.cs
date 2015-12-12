@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace BookList_Creator
 {
@@ -12,7 +14,8 @@ namespace BookList_Creator
     {
         #region Variables
 
-        private static Boolean DESCENDING = true;
+        private enum Order { ASCENDING_SIZE, DESCENDING_SIZE, ASCENDING_NAME, DESCENDING_NAME };
+        private static Order ORDERBY = Order.DESCENDING_SIZE;
         private static Boolean SHOWSIZE = false;
 
         private static String BOOKLISTFILE = @"E:\Books\TXT\小说\精校目录.txt";
@@ -27,6 +30,9 @@ namespace BookList_Creator
 
         public static void Main(String[] args)
         {
+            // Sort Chinese character correctly
+            Thread.CurrentThread.CurrentCulture = new CultureInfo("zh-cn");
+
             switch (args.Length)
             {
                 case 0:
@@ -53,7 +59,7 @@ namespace BookList_Creator
             GetAllBookInfoHelper(DIRECTORY);
 
             // Sort BOOKS
-            if (DESCENDING)
+            if (ORDERBY == Order.DESCENDING_SIZE)
             {
                 BOOKS.Sort((x, y) =>
                 {
@@ -61,12 +67,28 @@ namespace BookList_Creator
                     return result == 0 ? x.Item1.CompareTo(y.Item1) : result;
                 });
             }
-            else
+            else if (ORDERBY == Order.ASCENDING_SIZE)
             {
                 BOOKS.Sort((x, y) =>
                 {
                     int result = x.Item2.CompareTo(y.Item2);
                     return result == 0 ? x.Item1.CompareTo(y.Item1) : result;
+                });
+            }
+            else if (ORDERBY == Order.DESCENDING_NAME)
+            {
+                BOOKS.Sort((x, y) =>
+                {
+                    int result = y.Item1.CompareTo(x.Item1);
+                    return result == 0 ? x.Item2.CompareTo(y.Item2) : result;
+                });
+            }
+            else if (ORDERBY == Order.ASCENDING_NAME)
+            {
+                BOOKS.Sort((x, y) =>
+                {
+                    int result = x.Item1.CompareTo(y.Item1);
+                    return result == 0 ? x.Item2.CompareTo(y.Item2) : result;
                 });
             }
         }
@@ -175,18 +197,34 @@ namespace BookList_Creator
         {
             if (arg[0] == '/' && arg.Length == 2)
             {
-                switch (Char.ToLower(arg[1]))
+                if (arg[1] == '?')
+                    ConsolePrintHelp();
+                else
+                    ConsolePrintError();
+            }
+            else if (arg[0] == '/' && arg.Length == 3)
+            {
+                Char c1 = Char.ToLower(arg[1]);
+                Char c2 = Char.ToLower(arg[2]);
+                switch (c1)
                 {
                     case 'a':
-                        DESCENDING = false;
+                        if (c2 == 's')
+                            ORDERBY = Order.ASCENDING_SIZE;
+                        else if (c2 == 'n')
+                            ORDERBY = Order.ASCENDING_NAME;
                         break;
                     case 'd':
+                        if (c2 == 's')
+                            ORDERBY = Order.DESCENDING_SIZE;
+                        else if (c2 == 'n')
+                            ORDERBY = Order.DESCENDING_NAME;
                         break;
                     case 's':
-                        SHOWSIZE = true;
-                        break;
-                    case '?':
-                        ConsolePrintHelp();
+                        if (c2 == 's')
+                            SHOWSIZE = true;
+                        else
+                            ConsolePrintError();
                         break;
                     default:
                         ConsolePrintError();
@@ -201,19 +239,29 @@ namespace BookList_Creator
 
         private static void ProcessArgs(String arg1, String arg2)
         {
-            if (arg1[0] == '/' && arg2[0] == '/' && arg1.Length == 2 && arg2.Length == 2)
+            if (arg1[0] == '/' && arg2[0] == '/' && arg1.Length == 3 && arg2.Length == 3)
             {
-                Char a1 = Char.ToLower(arg1[1]);
-                Char a2 = Char.ToLower(arg2[1]);
+                String a1 = arg1.Substring(1, 2).ToLower();
+                String a2 = arg2.Substring(1, 2).ToLower();
 
-                if ((a1 == 'a' && a2 == 's') || (a1 == 's' && a2 == 'a'))
+                if ((a1 == "as" && a2 == "ss") || (a1 == "ss" && a2 == "as"))
                 {
-                    DESCENDING = false;
+                    ORDERBY = Order.ASCENDING_SIZE;
                     SHOWSIZE = true;
                 }
-                else if ((a1 == 'd' && a2 == 's') || (a1 == 's' && a2 == 'd'))
+                else if ((a1 == "ds" && a2 == "ss") || (a1 == "ss" && a2 == "ds"))
                 {
-                    DESCENDING = true;
+                    ORDERBY = Order.DESCENDING_SIZE;
+                    SHOWSIZE = true;
+                }
+                else if ((a1 == "an" && a2 == "ss") || (a1 == "ss" && a2 == "an"))
+                {
+                    ORDERBY = Order.ASCENDING_NAME;
+                    SHOWSIZE = true;
+                }
+                else if ((a1 == "dn" && a2 == "ss") || (a1 == "ss" && a2 == "dn"))
+                {
+                    ORDERBY = Order.DESCENDING_NAME;
                     SHOWSIZE = true;
                 }
                 else
@@ -245,10 +293,12 @@ namespace BookList_Creator
         private static void ConsolePrintHelp()
         {
             ConsolePrint(String.Format("Create a book list at \"{0}\" for \"{1}\".\n", BOOKLISTFILE, DIRECTORY));
-            ConsolePrint("BOOKLIST_CREATOR [/A | /D] [/S]\n");
-            ConsolePrint("    /A      Output all books in ascending order with respect to file size.");
-            ConsolePrint("    /D      Output all books in descending order with respect to file size.\n");
-            ConsolePrint("    /S      Output all books and their file sizes.");
+            ConsolePrint("BOOKLIST_CREATOR [/AS | /DS | /AN | /DN] [/SS]\n");
+            ConsolePrint("    /AS      Sort all books ascendingly by size.");
+            ConsolePrint("    /DS      Sort all books descendingly by size.\n");
+            ConsolePrint("    /AN      Sort all books ascendingly by name.");
+            ConsolePrint("    /DN      Sort all books descendingly by name.\n");
+            ConsolePrint("    /SS      Show size information.");
         }
 
         #endregion

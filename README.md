@@ -13,8 +13,10 @@ Application is for **Windows ONLY**.
 $ BOOKLIST_CREATOR /?
 
 # Run BOOKLIST_CREATOR
-$ BOOKLIST_CREATOR [/A | /D] [/S]
-# /A      Output all books in ascending order with respect to file size.
-# /D      Output all books in descending order with respect to file size.
-# /S      Output all books and their file sizes.
+$ BOOKLIST_CREATOR [/AS | /DS | /AN | /DN] [/SS]
+#    /AS      Sort all books ascendingly by size.
+#    /DS      Sort all books descendingly by size.
+#    /AN      Sort all books ascendingly by name.
+#    /DN      Sort all books descendingly by name.
+#    /SS      Show size information.
 ```
